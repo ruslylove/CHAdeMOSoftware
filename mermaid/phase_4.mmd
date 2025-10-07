@@ -1,0 +1,27 @@
+---
+title: "Phase 4: Normal Shutdown"
+---
+stateDiagram-v2
+    direction LR
+
+    [*] --> CEASE_CURRENT: Stop condition met
+    note right of CEASE_CURRENT
+        <b>TX 0x102</b> Control frame sent with
+        Target Current set to 0A.
+    end note
+
+    CEASE_CURRENT --> WAIT_FOR_ZERO_CURRENT
+    
+    WAIT_FOR_ZERO_CURRENT --> OPEN_CONTACTOR: <b>RX 0x109</b> EVSE confirms current is 0A
+    note left of WAIT_FOR_ZERO_CURRENT
+        Safety check to ensure no current
+        is flowing before opening contactors.
+    end note
+
+    OPEN_CONTACTOR: Set OUT2 LOW
+    note right of OPEN_CONTACTOR
+        <b>TX 0x102</b> Control frame sent with
+        'Contactor Open' and 'Charging Disabled' bits.
+    end note
+
+    OPEN_CONTACTOR --> STOPPED: Return to Idle

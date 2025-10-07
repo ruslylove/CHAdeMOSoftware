@@ -1,0 +1,19 @@
+---
+title: "Phase 3: Active Charging (Running Loop)"
+---
+stateDiagram-v2
+    direction LR
+
+    state "RUNNING" as RUNNING
+    note right of RUNNING
+        <b>Continuous Exchange (every 100ms)</b>
+        <b>TX 0x102</b> Vehicle sends target Voltage & Current.
+        <b>RX 0x109</b> EVSE sends actual measured Voltage, Current, and Status.
+        <br>
+        <i>Vehicle BMS logic adjusts target current for CV taper, etc.</i>
+    end note
+
+    RUNNING --> CEASE_CURRENT: <b>Normal Stop</b> Target Voltage Reached
+    RUNNING --> CEASE_CURRENT: <b>EVSE Request</b> Stop bit set in <b>RX 0x109</b>
+    RUNNING --> CEASE_CURRENT: <b>Fault Detected</b> Mismatch, Over-temp, etc.
+    RUNNING --> OPEN_CONTACTOR: <b>Emergency Stop</b> EVSE Comm Timeout

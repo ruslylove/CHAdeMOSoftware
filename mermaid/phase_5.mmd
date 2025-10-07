@@ -1,0 +1,24 @@
+---
+title: "Phase 5: Fault & Emergency Shutdown"
+---
+stateDiagram-v2
+    direction LR
+
+    state "Any State" as Any
+    state "RUNNING" as RUNNING
+    state "WAIT_FOR_EVSE_PARAMS" as WAIT_FOR_EVSE_PARAMS
+
+    Any --> FAULTED: Internal Fault Detected
+    FAULTED --> CEASE_CURRENT: Initiate Safe Shutdown
+
+    RUNNING --> CEASE_CURRENT: <b>RX 0x109</b> EVSE reports fault
+    RUNNING --> CEASE_CURRENT: <b>Internal Check</b> V/I Mismatch or Over-Voltage
+    
+    WAIT_FOR_EVSE_PARAMS --> CEASE_CURRENT: <b>RX 0x108</b> EVSE voltage incompatible
+
+    RUNNING --> OPEN_CONTACTOR: <b>Emergency</b> EVSE Comm Timeout (>1s)
+    note right of OPEN_CONTACTOR
+        Skips the zero-current check because
+        communication is lost. Opens contactors
+        as a last resort.
+    end note

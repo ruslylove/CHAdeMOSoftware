@@ -1,0 +1,27 @@
+---
+title: "Phase 1: Initiation & Handshake"
+---
+stateDiagram-v2
+    direction LR
+
+    [*] --> STOPPED: System Power On
+    STOPPED --> STARTUP: Plug Detected (IN1 HIGH) & 500ms delay
+    
+    STARTUP --> SEND_INITIAL_PARAMS: Initialize variables
+    note right of SEND_INITIAL_PARAMS
+        <b>Start Periodic Transmissions:</b>
+        <b>TX 0x100:</b> Battery Specs (Max V, Pack kWh)
+        <b>TX 0x101:</b> Requested Charge Time
+        <b>TX 0x102:</b> Control (Initial Status)
+    end note
+    
+    SEND_INITIAL_PARAMS --> WAIT_FOR_EVSE_PARAMS
+
+    state "Wait for EVSE" as WAIT_FOR_EVSE_PARAMS
+    note right of WAIT_FOR_EVSE_PARAMS
+        Vehicle is listening for the EVSE's
+        capabilities and limits.
+    end note
+
+    WAIT_FOR_EVSE_PARAMS --> SET_CHARGE_BEGIN: <b>RX 0x108</b> EVSE Params OK
+    WAIT_FOR_EVSE_PARAMS --> CEASE_CURRENT: <b>RX 0x108</b> EVSE Voltage Incompatible

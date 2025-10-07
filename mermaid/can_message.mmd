@@ -1,0 +1,80 @@
+---
+title: CHAdeMO State Diagram with CAN Message Annotations
+---
+stateDiagram-v2
+    direction LR
+
+    [*] --> STOPPED: System Power On
+
+    state "Plug Inserted" as PluggedIn
+    state "Plug Removed" as PluggedOut
+
+    STOPPED --> PluggedIn: Plug Detected (IN1 HIGH)
+    PluggedIn --> STARTUP: 500ms delay
+    
+    STARTUP --> SEND_INITIAL_PARAMS: Start sending periodic frames
+    note right of SEND_INITIAL_PARAMS
+        <b>TX 0x100:</b> Battery Specs
+        <b>TX 0x101:</b> Charge Time
+        <b>TX 0x102:</b> Control (Target V/I, Status)
+    end note
+    
+    SEND_INITIAL_PARAMS --> WAIT_FOR_EVSE_PARAMS
+
+    WAIT_FOR_EVSE_PARAMS --> SET_CHARGE_BEGIN: <b>RX 0x108</b> EVSE Params Received
+    note right of WAIT_FOR_EVSE_PARAMS
+        Waiting for EVSE to send
+        its capabilities.
+    end note
+
+    SET_CHARGE_BEGIN --> WAIT_FOR_BEGIN_CONFIRMATION
+    note right of SET_CHARGE_BEGIN
+        <b>TX 0x102:</b> Control frame sent with
+        'Charging Enabled' bit set.
+    end note
+
+    WAIT_FOR_BEGIN_CONFIRMATION --> CLOSE_CONTACTORS: EVSE Ready (IN2 LOW)
+
+    CLOSE_CONTACTORS --> RUNNING
+    note right of CLOSE_CONTACTORS
+        <b>TX 0x102:</b> Control frame sent with
+        'Contactor Closed' bit set.
+    end note
+
+    state "RUNNING" as RUNNING
+    note right of RUNNING
+        <b>Continuous Exchange (every 100ms):</b>
+        <b>TX 0x102:</b> Car sends target V/I.
+        <b>RX 0x109:</b> EVSE sends actual V/I and status.
+    end note
+
+    RUNNING --> CEASE_CURRENT: Target Voltage Reached
+    RUNNING --> CEASE_CURRENT: <b>RX 0x109</b> EVSE Stop Request
+    RUNNING --> CEASE_CURRENT: <b>RX 0x109</b> EVSE Time Elapsed
+    RUNNING --> CEASE_CURRENT: <b>RX 0x109</b> EVSE Fault
+    RUNNING --> CEASE_CURRENT: Voltage/Current Mismatch (from <b>RX 0x109</b>)
+    RUNNING --> CEASE_CURRENT: Over-Voltage Fault
+    RUNNING --> OPEN_CONTACTOR: EVSE Comm Timeout (No <b>RX 0x108/0x109</b>)
+
+    WAIT_FOR_EVSE_PARAMS --> CEASE_CURRENT: <b>RX 0x108</b> EVSE Voltage Incompatible
+
+    CEASE_CURRENT --> WAIT_FOR_ZERO_CURRENT
+    note right of CEASE_CURRENT
+        <b>TX 0x102:</b> Control frame sent with
+        Target Current set to 0A.
+    end note
+    
+    WAIT_FOR_ZERO_CURRENT --> OPEN_CONTACTOR: <b>RX 0x109</b> EVSE reports 0A
+    
+    OPEN_CONTACTOR --> STOPPED
+    note right of OPEN_CONTACTOR
+        <b>TX 0x102:</b> Control frame sent with
+        'Contactor Open' and 'Charging Disabled' bits.
+    end note
+
+    STOPPED --> PluggedOut: Plug Removed (IN1 LOW)
+    PluggedOut --> STOPPED
+
+    state "Any State" as Any
+    Any --> FAULTED: Fault Condition
+    FAULTED --> CEASE_CURRENT: Initiate Shutdown

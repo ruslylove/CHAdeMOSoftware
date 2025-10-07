@@ -1,0 +1,27 @@
+---
+title: "Phase 2: Charge Start-up"
+---
+stateDiagram-v2
+    direction LR
+
+    SET_CHARGE_BEGIN: Set OUT1 HIGH
+    note right of SET_CHARGE_BEGIN
+        <b>TX 0x102</b> Control frame sent with
+        'Charging Enabled' bit set.
+    end note
+
+    SET_CHARGE_BEGIN --> WAIT_FOR_BEGIN_CONFIRMATION
+
+    WAIT_FOR_BEGIN_CONFIRMATION --> CLOSE_CONTACTORS: EVSE Ready (IN2 LOW)
+    note left of WAIT_FOR_BEGIN_CONFIRMATION
+        Vehicle waits for EVSE to
+        confirm it's ready to supply power.
+    end note
+
+    CLOSE_CONTACTORS: Set OUT2 HIGH
+    note right of CLOSE_CONTACTORS
+        <b>TX 0x102</b> Control frame sent with
+        'Contactor Closed' bit set.
+    end note
+    
+    CLOSE_CONTACTORS --> RUNNING: Transition to Active Charging
