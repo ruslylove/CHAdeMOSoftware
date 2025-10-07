@@ -1,0 +1,57 @@
+---
+title: CHAdeMO Charging State Diagram
+---
+stateDiagram-v2
+    direction LR
+
+    [*] --> STOPPED: System Power On
+
+    state "Plug Inserted" as PluggedIn
+    state "Plug Removed" as PluggedOut
+
+    STOPPED --> PluggedIn: Plug Detected (IN1 HIGH)
+    PluggedIn --> STARTUP: 500ms delay
+    
+    state fork_state <<fork>>
+    STARTUP --> LIMBO
+    LIMBO --> SEND_INITIAL_PARAMS: 50ms delay
+    SEND_INITIAL_PARAMS --> LIMBO
+    LIMBO --> WAIT_FOR_EVSE_PARAMS: 50ms delay
+
+    WAIT_FOR_EVSE_PARAMS --> LIMBO: EVSE CAN Params Received
+    LIMBO --> SET_CHARGE_BEGIN: 100ms delay
+
+    SET_CHARGE_BEGIN --> LIMBO
+    LIMBO --> WAIT_FOR_BEGIN_CONFIRMATION: 50ms delay
+
+    WAIT_FOR_BEGIN_CONFIRMATION --> LIMBO: EVSE Ready (IN2 LOW)
+    LIMBO --> CLOSE_CONTACTORS: 100ms delay
+
+    CLOSE_CONTACTORS --> LIMBO
+    LIMBO --> RUNNING: 50ms delay
+
+    RUNNING: Charging in Progress<br>(Monitoring V, I, Temp)
+
+    RUNNING --> CEASE_CURRENT: Target Voltage Reached
+    RUNNING --> CEASE_CURRENT: EVSE Stop Request
+    RUNNING --> CEASE_CURRENT: EVSE Time Elapsed
+    RUNNING --> CEASE_CURRENT: EVSE Fault
+    RUNNING --> CEASE_CURRENT: Voltage/Current Mismatch
+    RUNNING --> CEASE_CURRENT: Over-Voltage Fault
+    RUNNING --> OPEN_CONTACTOR: EVSE Comm Timeout
+
+    WAIT_FOR_EVSE_PARAMS --> CEASE_CURRENT: EVSE Voltage Incompatible
+
+    CEASE_CURRENT --> WAIT_FOR_ZERO_CURRENT: Current set to 0A
+    WAIT_FOR_ZERO_CURRENT --> LIMBO: EVSE reports 0A
+    LIMBO --> OPEN_CONTACTOR: 150ms delay
+
+    OPEN_CONTACTOR --> LIMBO
+    LIMBO --> STOPPED: 100ms delay
+
+    STOPPED --> PluggedOut: Plug Removed (IN1 LOW)
+    PluggedOut --> STOPPED
+
+    state "Any State" as Any
+    Any --> FAULTED: Fault Condition
+    FAULTED --> CEASE_CURRENT: Initiate Shutdown
