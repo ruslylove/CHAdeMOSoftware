@@ -1,0 +1,31 @@
+sequenceDiagram
+    title: CHAdeMO Charging Sequence (EV and EVSE)
+    actor EV
+    actor EVSE
+
+    %% 1. Connection and Initialization
+    EV->>EVSE: Plug Inserted (Physical Connection)
+    Note over EV: Detects plug via IN1 pin going HIGH.
+    EV->>EVSE: Set Charge Permission LOW (OUT1)
+    EV->>EVSE: Set Contactor Control LOW (OUT2)
+
+    %% 2. Parameter Exchange
+    loop 100ms Communication Cycle
+        EV->>EVSE: Send Vehicle Specs (CAN 0x100, 0x101, 0x102)
+    end
+    Note over EV: Enters STARTUP, then SEND_INITIAL_PARAMS state.
+
+    EVSE-->>EV: Send EVSE Parameters (CAN 0x108)
+    Note over EV: Receives params, transitions to SET_CHARGE_BEGIN.
+
+    %% 3. Pre-Charge Handshake
+    EV->>EVSE: Set Charge Permission HIGH (OUT1)
+    Note over EV: Signals readiness to charge.
+
+    EVSE-->>EV: Set Charging Ready Signal LOW (IN2)
+    Note over EV: Detects EVSE is ready, transitions to CLOSE_CONTACTORS.
+
+    %% 4. Start Charging
+    EV->>EVSE: Close Contactors (OUT2 HIGH)
+    Note over EV: Enters RUNNING state.
+    EVSE-->>EV: Apply Voltage and Current

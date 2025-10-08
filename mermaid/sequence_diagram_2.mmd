@@ -1,0 +1,31 @@
+sequenceDiagram
+    title: CHAdeMO Charging Sequence (EV and EVSE)
+    actor EV
+    actor EVSE
+
+    
+    Note over EV: In RUNNING state.
+
+
+    %% 5. Running/Charging State
+    loop 100ms Communication Cycle
+        EV->>EVSE: Vehicle Status & Current/Voltage Request (CAN 0x102)
+        EVSE-->>EV: EVSE Status, Measured V/I (CAN 0x109)
+    end
+    Note over EV,EVSE: EV adjusts current request based on battery state (SoC, temp, voltage).<br/>EVSE adjusts output based on EV's request.
+
+    %% 6. Normal Shutdown (e.g., Charge Complete)
+    Note over EV: Charge complete condition met (e.g., target voltage reached).
+    EV->>EVSE: Request Zero Current (CAN 0x102 with Current=0A)
+    Note over EV: Enters CEASE_CURRENT state.
+
+    EVSE-->>EV: Ramp down current to 0A
+    EVSE-->>EV: Report Zero Current (CAN 0x109 with Current=0A)
+    Note over EV: Detects zero current, enters OPEN_CONTACTOR state.
+
+    EV->>EVSE: Open Contactors (OUT2 LOW)
+    EV->>EVSE: Set Charge Permission LOW (OUT1)
+    Note over EV: Enters STOPPED state.
+    EVSE-->>EV: De-energize output.
+
+    EV->>EVSE: Plug Removed (Physical Disconnection)

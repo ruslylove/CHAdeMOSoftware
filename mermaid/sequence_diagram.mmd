@@ -1,0 +1,54 @@
+sequenceDiagram
+    title: CHAdeMO Charging Sequence (EV and EVSE)
+    actor EV
+    actor EVSE
+
+    %% 1. Connection and Initialization
+    EV->>EVSE: Plug Inserted (Physical Connection)
+    Note over EV: Detects plug via IN1 pin going HIGH.
+    EV->>EVSE: Set Charge Permission LOW (OUT1)
+    EV->>EVSE: Set Contactor Control LOW (OUT2)
+
+    %% 2. Parameter Exchange
+    loop 100ms Communication Cycle
+        EV->>EVSE: Send Vehicle Specs (CAN 0x100, 0x101, 0x102)
+    end
+    Note over EV: Enters STARTUP, then SEND_INITIAL_PARAMS state.
+
+    EVSE-->>EV: Send EVSE Parameters (CAN 0x108)
+    Note over EV: Receives params, transitions to SET_CHARGE_BEGIN.
+
+    %% 3. Pre-Charge Handshake
+    EV->>EVSE: Set Charge Permission HIGH (OUT1)
+    Note over EV: Signals readiness to charge.
+
+    EVSE-->>EV: Set Charging Ready Signal LOW (IN2)
+    Note over EV: Detects EVSE is ready, transitions to CLOSE_CONTACTORS.
+
+    %% 4. Start Charging
+    EV->>EVSE: Close Contactors (OUT2 HIGH)
+    Note over EV: Enters RUNNING state.
+    EVSE-->>EV: Apply Voltage and Current
+
+    %% 5. Running/Charging State
+    loop 100ms Communication Cycle
+        EV->>EVSE: Vehicle Status & Current/Voltage Request (CAN 0x102)
+        EVSE-->>EV: EVSE Status, Measured V/I (CAN 0x109)
+    end
+    Note over EV,EVSE: EV adjusts current request based on battery state (SoC, temp, voltage).<br/>EVSE adjusts output based on EV's request.
+
+    %% 6. Normal Shutdown (e.g., Charge Complete)
+    Note over EV: Charge complete condition met (e.g., target voltage reached).
+    EV->>EVSE: Request Zero Current (CAN 0x102 with Current=0A)
+    Note over EV: Enters CEASE_CURRENT state.
+
+    EVSE-->>EV: Ramp down current to 0A
+    EVSE-->>EV: Report Zero Current (CAN 0x109 with Current=0A)
+    Note over EV: Detects zero current, enters OPEN_CONTACTOR state.
+
+    EV->>EVSE: Open Contactors (OUT2 LOW)
+    EV->>EVSE: Set Charge Permission LOW (OUT1)
+    Note over EV: Enters STOPPED state.
+    EVSE-->>EV: De-energize output.
+
+    EV->>EVSE: Plug Removed (Physical Disconnection)
